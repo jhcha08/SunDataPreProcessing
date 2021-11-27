@@ -1,0 +1,31 @@
+1. prep 과정
+
+* header의 CRPIX1, CRPIX2 이용해서 centering 해주고 (중심 맞춰주기), 
+* RSUN(태양 반지름, arcsec단위)과 CDELT1, CDELT2(한 픽셀당 몇 arcsec인지)를 이용해서 RSUN이 몇 픽셀인지 계산해줌 
+(=RSUN/CDELT) + AIA는 CDELT1,2가 0.6arcsec
+* SOLAR_P0(polar angle: north로부터 몇 도 기울어져 있는가)를 이용해서 rotation도 보정
+* 위의 모든 과정은 AIA에 대해서 Sunpy의 prep코드로 할 수 있고, He에 대해서는 직접 코드 짜서 해야함, 근데 He는 centering 되어있음
+* 그리고 AIA와 He모두 전체 픽셀값에 대해 EXPDUR(노출시간)으로 나눠준다  
+* AIA, He 데이터의 min, max값을 확인하고 시간에 따라 (2012.1.1~12.31) plot해서 경향성 확인하고 min의 min값, max의 max값 확인한다.
+-> 두 개 값이 모델이 낼 수 있는 최소 최대 값들. 이걸 알고 있어야 나중에 모델이 이미지를 생성할 때 참고한다.
+(나뭇잎이 같은 초록색이어도 더 진한 초록인지 연한 초록인지? 우리는 8bit 색상이 0~255사이의 값 가진다는거 알지만 모델은 그렇지 않다...)
+그리고 header의 min, max가 바깥도 포함인지 태양에만 한정된건지도 비교 (태양에만 한정된 거면 다행이고, 아니면 아래 과정 필요 *아닌듯...)
+* AIA, He 데이터 모두 태양에만 한정시켜서 픽셀값의 min, max, median 구해야 하는데 이때 array를 RSUN에 맞춰서 계산 후 (코드로 RSUN에
+해당하는 부분만 array로 만들도록) min, max, median을 구해서 plot
+* 파이썬의 경우 이미지 표출할 때 x축, y축이 생각과는 다르게 되므로 이미지 저장할 때는 상하좌우 반전 있는지 확인
+
+2. degradation 보정 과정
+
+* 위에서 구한 AIA의 픽셀값의 median plot을 보면 날이 갈수록 median값이 점점 줄어든다.
+(aia get response function을 IDL에서 이용해서 그린 median plot과 거의 비슷한 모양이라고 함)
+* 1월 1일에 median값이 100이고 12월 31일에 80이면 전체 값에 대해서 1월 1일이 기준이 되도록 5/4를 곱해줘서 그래프를 일직선으로 만든다
+(비율만큼의 ratio값을 하루 하루 데이터의 전체 픽셀에 곱해서 보정)
+* He도 median 구해보는데 첫 값 & 끝 값의 median을 AIA와 같이 plot후 차이 크지 않으면 굳이 보정X, 차이 있으면 위와 같이 보정
+(지상 데이터는 degradation 보정 잘 안함) - median 값이 0 아래로 나오는 건 뭔가 이미 전처리가 되었다는 뜻(?), 단위가 ccd이면 dn이라는 뜻인데
+이건 기기에 잡힌 photon의 갯수라고 생각하면 됨 - 일단은 그냥 데이터 쓰는 걸로. 나중에 모델 넣었을 때 어떻게 되는지 보고 추가 보정하든지 함.
+* aia는 메디안 값들에 대해, 예를 들어 10으로 메디안 통일한다면 10/메디안을 모든 메디안에 곱해서 메디안 통일한다. 그러면 모든 background에 대해 동일한 밝기로 될 것이다. 
+
+3. Resize 과정 (resize 전에 centering, rotation, degradation, exposure time 보정 다 해준다)
+
+* He 데이터 (1024*1024) 중 가장 작은 RSUN에 대해 맞추어 He와 AIA resize.
+(He의 RSUN을 픽셀 단위로 다 바꾸고 plot해서 뭐가 제일 작은지 찾는다)
